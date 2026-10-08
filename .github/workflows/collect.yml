@@ -1,0 +1,33 @@
+name: collect
+on:
+  schedule:
+    - cron: "30 0 * * 1-5"   # 台北 08:30 啟動
+    - cron: "30 1 * * 1-5"   # 台北 09:30 備援（第一次沒啟動才會真的紀錄）
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "測試模式（不等時間、抓兩輪、不存檔）"
+        type: boolean
+        default: false
+concurrency:
+  group: collect
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install requests
+      - run: python collect.py ${{ inputs.test && '--test' || '' }}
+      - name: 存檔
+        if: ${{ always() && !inputs.test }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || (git commit -m "data $(TZ=Asia/Taipei date +%F)" && git pull --rebase && git push)
