@@ -84,6 +84,8 @@ def is_trading_day():
         except Exception:
             time.sleep(20)
     log("台積電報價日期", d, "今天", TODAY)
+    if d is None:                                # 連不上證交所 → 當失敗處理，讓 GitHub 寄通知信
+        raise SystemExit("連不上證交所即時報價（可能被擋），請檢查")
     return d == TODAY.strftime("%Y%m%d")
 
 
@@ -249,6 +251,7 @@ def main():
     fast_rec = Recorder(os.path.join(OUT, "fast.csv.gz"), ["ts"] + FIELDS)
     stop = threading.Event()
     th = threading.Thread(target=fast_loop, args=(fast_items, fast_rec, stop), daemon=True)
+    tried = good = 0                             # 健康檢查：每輪抓到八成以上才算正常
 
     if test:
         th.start()
@@ -267,6 +270,7 @@ def main():
                 wait_until(t.hour, t.minute)
                 t0 = time.time(); rows = snapshot(main_items)
                 main_rec.rows(t.strftime("%H:%M"), rows)
+                tried += 1; good += len(rows) >= len(main_items) * 0.8
                 log(f"{t:%H:%M} 主紀錄 {len(rows)}/{len(main_items)} 筆，{time.time()-t0:.0f} 秒")
             t += timedelta(seconds=MAIN_EVERY)
         wait_until(13, 25, 30)
@@ -282,7 +286,9 @@ def main():
     json.dump(ov, open(os.path.join(OUT, "outstanding.json"), "w", encoding="utf-8"))
     log(f"流通在外 {sum(v is not None for v in ov.values())}/{len(ov)} 檔")
     open(os.path.join(OUT, "done.txt"), "w").write(now().isoformat())
-    log("完成")
+    if not test and (tried == 0 or good < tried * 0.8):
+        raise SystemExit(f"今天資料不完整：正常 {good}/{tried} 輪，請檢查")   # 已抓到的照樣存檔，但標成失敗寄信
+    log(f"完成（正常 {good}/{tried} 輪）")
 
 
 if __name__ == "__main__":
