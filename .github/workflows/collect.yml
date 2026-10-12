@@ -1,8 +1,11 @@
 name: collect
 on:
   schedule:
-    - cron: "30 0 * * 1-5"   # 台北 08:30 啟動
-    - cron: "30 1 * * 1-5"   # 台北 09:30 備援（第一次沒啟動才會真的紀錄）
+    # GitHub 排程常常延遲（10/9 晚了 6 小時），所以多設幾個時間，先到的那個負責紀錄，其他的看到已完成就結束
+    - cron: "5 0 * * 1-5"    # 台北 08:05
+    - cron: "35 0 * * 1-5"   # 台北 08:35
+    - cron: "5 1 * * 1-5"    # 台北 09:05
+    - cron: "30 2 * * 1-5"   # 台北 10:30
   workflow_dispatch:
     inputs:
       test:
@@ -17,7 +20,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,5 +32,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -d data ] || exit 0
           git add data
           git diff --cached --quiet || (git commit -m "data $(TZ=Asia/Taipei date +%F)" && git pull --rebase && git push)

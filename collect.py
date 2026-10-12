@@ -225,7 +225,9 @@ def main():
     if os.path.exists(os.path.join(OUT, "done.txt")) and not test:
         log("今天已經紀錄完了"); return
     if not test and now().hour >= 14:
-        log("已經收盤，今天不紀錄"); return
+        if is_trading_day():                     # 有開盤卻沒紀錄到 → GitHub 排程延遲太久，標成失敗寄信
+            raise SystemExit("排程太晚才啟動，今天盤中沒有紀錄到")
+        log("今天沒開盤"); return
     os.makedirs(OUT, exist_ok=True)
     sel_path = os.path.join(OUT, "selection.json")
     if os.path.exists(sel_path):                 # 同一天重跑（前一次中斷）就沿用
