@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
+        with: {ref: main}        # 拿最新版（含當天已存的資料），不要拿排程觸發當下的舊版
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: pip install requests

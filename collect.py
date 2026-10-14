@@ -224,7 +224,7 @@ def main():
     test = "--test" in sys.argv                  # 測試模式：不等時間、只抓幾輪
     if os.path.exists(os.path.join(OUT, "done.txt")) and not test:
         log("今天已經紀錄完了"); return
-    if not test and now().hour >= 14:
+    if not test and now() >= now().replace(hour=13, minute=20):   # 已經來不及紀錄任何一輪
         if is_trading_day():                     # 有開盤卻沒紀錄到 → GitHub 排程延遲太久，標成失敗寄信
             raise SystemExit("排程太晚才啟動，今天盤中沒有紀錄到")
         log("今天沒開盤"); return
