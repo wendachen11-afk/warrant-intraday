@@ -234,7 +234,17 @@ def main():
         sel = json.load(open(sel_path, encoding="utf-8"))
         chosen, fast = sel["main"], sel["fast"]
     else:
-        chosen, fast = select()
+        try:
+            chosen, fast = select()
+        except Exception as e:                   # 基本資料網站掛掉 → 沿用最近一天的名單，照樣紀錄
+            prev = sorted(d for d in os.listdir("data") if d < TODAY.isoformat()
+                          and os.path.exists(os.path.join("data", d, "selection.json")))
+            if not prev:
+                raise
+            log(f"挑權證失敗（{e}），沿用 {prev[-1]} 的名單")
+            sel = json.load(open(os.path.join("data", prev[-1], "selection.json"), encoding="utf-8"))
+            chosen = [w for w in sel["main"] if w["last"] >= TODAY.isoformat()]
+            fast = [c for c in sel["fast"] if c in {w["code"] for w in chosen}]
         json.dump({"main": chosen, "fast": fast}, open(sel_path, "w", encoding="utf-8"), ensure_ascii=False)
     unds = sorted({(w["und_market"], w["und"]) for w in chosen})
     main_items = unds + [(w["market"], w["code"]) for w in chosen]
