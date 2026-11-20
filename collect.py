@@ -1,7 +1,8 @@
 # 權證盤中紀錄：每個交易日由 GitHub Actions 啟動一次，跑到收盤後結束
-#   1. 挑權證：熱門標的、價外 0~20%、剩 30~240 天，約 1,500 檔
-#   2. 主紀錄：09:05~13:25 每 5 分鐘抓一次五檔（權證＋標的），13:31 再抓一次收盤
-#   3. 快速樣本：約 50 檔（5 個標的 × 各發行商一檔）每 10 秒抓一次，看報價跟得快不快
+#   1. 挑權證：熱門標的、價外 0~20%、剩 30~240 天，約 1,000 檔（每標的最多 40 檔）
+#   2. 主紀錄：09:05~13:25 每 10 分鐘抓一次五檔（權證＋標的），13:31 再抓一次收盤
+#   3. 快速樣本：約 50 檔（5 個標的 × 各發行商一檔）每 30 秒抓一次，看報價跟得快不快
+#   （2026-11-23 起：證交所 MIS 變慢，從 1,500 檔/5 分鐘/10 秒減量）
 #   4. 收盤後：抓流通在外張數（元大權證網，統計到前一交易日）
 # 資料存在 data/日期/，由 workflow 收尾時 commit
 import csv, gzip, json, os, re, ssl, sys, threading, time
@@ -16,7 +17,7 @@ TZ = ZoneInfo("Asia/Taipei")
 now = lambda: datetime.now(TZ)
 TODAY = now().date()
 OUT = os.path.join("data", "test" if "--test" in sys.argv else TODAY.isoformat())
-TARGET_N, PER_UND, FAST_UND, MAIN_EVERY, FAST_EVERY = 1500, 60, 5, 300, 10
+TARGET_N, PER_UND, FAST_UND, MAIN_EVERY, FAST_EVERY = 1000, 40, 5, 600, 30
 URLS = {
     "twse_w": "https://openapi.twse.com.tw/v1/opendata/t187ap37_L",
     "tpex_w": "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap37_O",
@@ -132,7 +133,7 @@ def select():
         by_und.setdefault(w["und"], []).append(w)
     ranked = sorted(by_und.values(), key=len, reverse=True)
     chosen = []
-    for ws in ranked:                            # 從權證最多的標的開始收，每個標的最多 60 檔、各發行商輪流挑
+    for ws in ranked:                            # 從權證最多的標的開始收，每個標的最多 40 檔、各發行商輪流挑
         if len(chosen) >= TARGET_N:
             break
         by_iss = {}
@@ -278,7 +279,7 @@ def main():
         t = now().replace(hour=9, minute=5, second=0, microsecond=0)
         end = now().replace(hour=13, minute=25, second=0, microsecond=0)
         while t <= end:
-            if now() < t + timedelta(minutes=4):     # 錯過太久的那輪就跳過
+            if now() < t + timedelta(minutes=8):     # 錯過太久的那輪就跳過
                 wait_until(t.hour, t.minute)
                 t0 = time.time(); rows = snapshot(main_items)
                 main_rec.rows(t.strftime("%H:%M"), rows)
